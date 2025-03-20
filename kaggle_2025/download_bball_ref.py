@@ -152,7 +152,7 @@ if __name__ == "__main__":
 
     logging.info("Downloading Basketball Reference Data")
     # Download tournament games
-    for year in range(2017, 2014, -1):
+    for year in range(2024, 2014, -1):
         if year == 2020:
             continue
         download_tournament_game_and_totals(year, is_womens=True)
@@ -160,36 +160,36 @@ if __name__ == "__main__":
         time.sleep(random.randint(5, 10))
 
     # Download advanced stats
-    # for year in range(2025, 2014, -1):
-    #     # Skip 2020 because it was cancelled due to COVID
-    #     if year == 2020 or year == 2017:
-    #         continue
-    #     download_advanced_stats(year)
-    #     # Rudimentary rate limiting
-    #     time.sleep(random.randint(10, 20))
+    for year in range(2025, 2014, -1):
+        # Skip 2020 because it was cancelled due to COVID
+        if year == 2020 or year == 2017:
+            continue
+        download_advanced_stats(year)
+        # Rudimentary rate limiting
+        time.sleep(random.randint(1, 3))
 
     # Download basic stats
-    # module_dir = pathlib.Path(__file__).parent
-    # for year in range(2015, 2025):
-    #     if year == 2020:
-    #         continue
-    #     future_stats_df = download_basic_stats(year)
-    #     tournament_totals_df = pl.read_parquet(
-    #         pathlib.Path(
-    #             module_dir.parent
-    #             / f"data/bball_ref/raw/tournament_totals/tournament_team_total_stats_{year}.parquet"
-    #         )
-    #     )
-    #     future_info_removed_df = bball_ref.remove_post_season_games(
-    #         tournament_totals_df, future_stats_df
-    #     )
-    #     out_dir = module_dir.parent / "data/bball_ref/raw/basic_stats/"
-    #     out_dir.mkdir(parents=True, exist_ok=True)
-    #     future_info_removed_df.write_parquet(
-    #         out_dir / f"basic_stats_{year}.parquet",
-    #     )
-    #     future_info_removed_df.write_csv(
-    #         out_dir / f"basic_stats_{year}.csv",
-    #     )
-    #     # Rudimentary rate limiting
-    #     time.sleep(random.randint(5, 10))
+    module_dir = pathlib.Path(__file__).parent
+    for year in range(2015, 2025):
+        if year == 2020:
+            continue
+        future_stats_df = download_basic_stats(year)
+        tournament_totals_df = pl.read_parquet(
+            pathlib.Path(
+                module_dir.parent
+                / f"data/bball_ref/raw/tournament_totals/tournament_team_total_stats_{year}.parquet"
+            )
+        )
+        future_info_removed_df = bball_ref.remove_post_season_games(
+            tournament_totals_df, future_stats_df
+        )
+        out_dir = module_dir.parent / "data/bball_ref/raw/basic_stats/"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        future_info_removed_df.write_parquet(
+            out_dir / f"basic_stats_{year}.parquet",
+        )
+        future_info_removed_df.write_csv(
+            out_dir / f"basic_stats_{year}.csv",
+        )
+        # Rudimentary rate limiting
+        time.sleep(random.randint(5, 10))
