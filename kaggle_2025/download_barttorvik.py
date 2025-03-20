@@ -1,5 +1,6 @@
 import logging
 import pathlib
+import random
 import time
 
 import uro_cbb.barttorvik as barttorvik
@@ -25,10 +26,10 @@ def download_womens_barttorvik_data(year: int):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    for year in range(2017, 2014, -1):
+    for year in range(2025, 2024, -1):
         if year == 2020:
             continue
         download_barttorvik_data(year)
-        time.sleep(2)
+        time.sleep(random.randint(2, 4))
         download_womens_barttorvik_data(year)
-        time.sleep(2)
+        time.sleep(random.randint(2, 4))

@@ -7,11 +7,15 @@ requires-python = ">=3.12"
 dependencies = [
     "bs4>=0.0.2",
     "pandas>=2.2.3",
+    "plotly>=6.0.1",
     "polars>=1.25.2",
     "pyarrow>=19.0.1",
     "pydantic>=2.10.6",
     "requests>=2.32.3",
+    "scikit-learn>=1.6.1",
     "statsmodels>=0.14.4",
+    "typer>=0.15.2",
+    "xgboost>=3.0.0",
 ]
 
 [dependency-groups]
