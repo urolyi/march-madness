@@ -404,14 +404,7 @@ def _download_basic_tournament_games(year: int, url: str) -> pd.DataFrame:
         )
         for game in itertools.chain.from_iterable(rounds_parsed)
     ]  # combines all matchups
-    # 2021 had one less game because of covid
-    # Oregon vs. VCU was declared a no contest
-    # if year == 2021 or year == 2023:
-    #     assert len(games_data) >= 62, (
-    #         f"Expected at least 62 games, got {len(games_data)} games"
-    #     )
-    # else:
-    #     assert len(games_data) == 63, f"Expected 63 games, got {len(games_data)} games"
+
     if len(games_data) < 63:
         logging.warning(f"Expected 63 games, got {len(games_data)} games")
     untyped_df = pd.DataFrame(

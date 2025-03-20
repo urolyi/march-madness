@@ -2,6 +2,7 @@ import pathlib
 import pickle
 
 import polars as pl
+import typer
 
 module_dir = pathlib.Path(__file__).parent.absolute()
 
@@ -102,5 +103,5 @@ def main(
 
 
 if __name__ == "__main__":
-    # typer.run(main)
-    main()
+    typer.run(main)
+    # main()
