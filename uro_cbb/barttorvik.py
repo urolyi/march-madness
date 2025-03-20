@@ -67,7 +67,7 @@ def get_content(tag: bs4.Tag) -> str:
 
 def _parse_barttorvik_table_cell(cell: bs4.Tag) -> str:
     if cell.find("a"):
-        return cell.find("a").text
+        return cell.find("a").contents[0]
     return get_content(cell)
 
 
@@ -113,10 +113,10 @@ def download_barttorvik_data(year: int) -> pl.DataFrame:
 
 def download_womens_barttorvik_data(year: int) -> pl.DataFrame:
     return _download_barttorvik_data(
-        year, barttorvik_url="https://barttorvik.com/womens/trank.php"
+        year, barttorvik_url="https://barttorvik.com/ncaaw/trank.php"
     )
 
 
 if __name__ == "__main__":
-    data = download_barttorvik_data(2024)
+    data = download_barttorvik_data(2025)
     print(data)
