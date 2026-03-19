@@ -30,7 +30,6 @@ TABLE_SCHEMA = {
     "3p%d": pl.Float32,
     "3pr": pl.Float32,
     "3prd": pl.Float32,
-    "2pr": pl.Float32,
     "adj t.": pl.Float32,
     "wab": pl.Float32,
 }
@@ -57,6 +56,7 @@ class GetRequest(pydantic.BaseModel):
     mingames: int = 0
 
 
+<<<<<<< Updated upstream
 def get_content(tag: bs4.Tag) -> str:
     if hasattr(tag, "contents"):
         if len(tag.contents) == 0:
@@ -69,6 +69,25 @@ def _parse_barttorvik_table_cell(cell: bs4.Tag) -> str:
     if cell.find("a"):
         return cell.find("a").contents[0]
     return get_content(cell)
+=======
+def _parse_barttorvik_table_cell(cell: bs4.Tag) -> str:
+    a_tag = cell.find("a")
+    if a_tag:
+        # Get just the first text node (team name), ignoring <br>/<span> children
+        for child in a_tag.children:
+            if isinstance(child, bs4.NavigableString):
+                text = child.strip()
+                if text:
+                    return text
+        return None
+    # For stat cells, get the first text node before <br>/<span>
+    for child in cell.children:
+        if isinstance(child, bs4.NavigableString):
+            text = child.strip()
+            if text:
+                return text
+    return None
+>>>>>>> Stashed changes
 
 
 def _parse_barttorvik_table_row(row: bs4.Tag) -> dict:
@@ -83,6 +102,7 @@ def _download_barttorvik_data(
         year=year,
         end=constants.TOURNAMENT_START_DATE_MAP[year] - datetime.timedelta(days=1),
     )
+<<<<<<< Updated upstream
     response = requests.get(
         barttorvik_url,
         params=request.model_dump(),
@@ -91,14 +111,37 @@ def _download_barttorvik_data(
     response.raise_for_status()
     soup = bs4.BeautifulSoup(response.text, "html.parser")
 
+=======
+    headers = constants.HEADERS.copy()
+    response = requests.get(
+        barttorvik_url,
+        params=request.model_dump(),
+        headers=headers,
+        cookies={"js_verified": "true"},
+    )
+    response.raise_for_status()
+    soup = bs4.BeautifulSoup(response.text, "html.parser")
+>>>>>>> Stashed changes
     # Get table header for columns and create schema dict
     table_header = soup.find("thead").find_all("tr")[-1]
     col_names = [th_tag.text for th_tag in table_header.find_all("th")]
     schema = {col.lower(): TABLE_SCHEMA[col.lower()] for col in col_names}
 
+<<<<<<< Updated upstream
     # Get table body and rows
     table_body = soup.find("tbody")
     rows = table_body.select("tr:not(.extraheader)")
+=======
+    # Get table body rows — collect from all <tbody> tags since the site
+    # splits the table across multiple tbody elements
+    all_tbodies = soup.find_all("tbody")
+    rows = [
+        tr
+        for tbody in all_tbodies
+        for tr in tbody.find_all("tr")
+        if "extraheader" not in tr.get("class", [])
+    ]
+>>>>>>> Stashed changes
 
     # Parse rows and create dataframe
     data = []
@@ -113,10 +156,18 @@ def download_barttorvik_data(year: int) -> pl.DataFrame:
 
 def download_womens_barttorvik_data(year: int) -> pl.DataFrame:
     return _download_barttorvik_data(
+<<<<<<< Updated upstream
         year, barttorvik_url="https://barttorvik.com/ncaaw/trank.php"
+=======
+        year, barttorvik_url="https://barttorvik.com/womens/trank.php"
+>>>>>>> Stashed changes
     )
 
 
 if __name__ == "__main__":
+<<<<<<< Updated upstream
     data = download_barttorvik_data(2025)
+=======
+    data = download_barttorvik_data(2026)
+>>>>>>> Stashed changes
     print(data)

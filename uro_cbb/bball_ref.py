@@ -12,6 +12,7 @@ import requests
 import uro_cbb.constants as constants
 
 ADVANCED_STATS_ARCHIVE_URLS = {
+    2026: "https://www.sports-reference.com/cbb/seasons/men/2026-advanced-school-stats.html",
     2025: "https://www.sports-reference.com/cbb/seasons/men/2025-advanced-school-stats.html",
     2024: "https://web.archive.org/web/20240320074354/https://www.sports-reference.com/cbb/seasons/men/2024-advanced-school-stats.html",
     2023: "https://web.archive.org/web/20230315164208/https://www.sports-reference.com/cbb/seasons/men/2023-advanced-school-stats.html",
@@ -24,35 +25,6 @@ ADVANCED_STATS_ARCHIVE_URLS = {
     2015: "https://web.archive.org/web/20150318205808/http://www.sports-reference.com/cbb/seasons/2015-advanced-school-stats.html",
 }
 
-GAME_TEAM_NAME_MAPPING = {
-    "UNC": "North Carolina",
-    "UMBC": "Maryland-Baltimore County",
-    "VCU": "Virginia Commonwealth",
-    "Saint Mary's": "Saint Mary's (CA)",
-    "ETSU": "East Tennessee State",
-    "USC": "Southern California",
-    "SMU": "Southern Methodist",
-    "St. Joseph's": "Saint Joseph's",
-    "St. Peter's": "Saint Peter's",
-    "UConn": "Connecticut",
-    "Pitt": "Pittsburgh",
-    "Ole Miss": "Mississippi",
-    "LSU": "Louisiana State",
-    "BYU": "Brigham Young",
-    "UMass": "Massachusetts",
-    "UNLV": "Nevada-Las Vegas",
-    "LIU-Brooklyn": "Long Island University",
-    "Detroit": "Detroit Mercy",
-    "Southern Miss": "Southern Mississippi",
-    "Texas A&M;": "Texas A&M",
-    "North Carolina A&T;": "North Carolina A&T",
-    "UCSB": "UC Santa Barbara",
-    "UC-Irvine": "UC Irvine",
-    "UC-Davis": "UC Davis",
-    "Penn": "Pennsylvania",
-}
-
-## SCHEMAS ##
 ADVANCED_STATS_SCHEMA = {
     "School": pl.Utf8,
     "G": pl.Int16,
@@ -177,7 +149,6 @@ ADVANCED_BOX_SCORE_SCHEMA = {
 }
 
 
-## Dataclasses ##
 @pydantic.dataclasses.dataclass(slots=True)
 class PostseasonGame:
     team1_name: str
@@ -193,43 +164,6 @@ class PostSeasonBoxScore:
     basic_box_score2: pd.DataFrame
     advanced_box_score1: pd.DataFrame
     advanced_box_score2: pd.DataFrame
-
-
-## Library Functions ##
-def create_session_with_retries(
-    retries=0,
-    backoff_factor=0.1,
-    status_forcelist=(500, 502, 503, 504),
-    allowed_methods=None,
-):
-    """
-    Creates a requests session with retry capability.
-
-    Args:
-        retries: Maximum number of retries
-        backoff_factor: Backoff factor for exponential backoff
-        status_forcelist: HTTP status codes that should trigger a retry
-        allowed_methods: HTTP methods that should be retried
-
-    Returns:
-        requests.Session with retry configuration
-    """
-    if allowed_methods is None:
-        allowed_methods = ["HEAD", "GET", "OPTIONS"]
-
-    retry = requests.adapters.Retry(
-        total=retries,
-        backoff_factor=backoff_factor,
-        status_forcelist=status_forcelist,
-        allowed_methods=allowed_methods,
-    )
-
-    adapter = requests.adapters.HTTPAdapter(max_retries=retry)
-    session = requests.Session()
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
-
-    return session
 
 
 def try_to_get_contents(data: bs4.element.Tag) -> str | None:
@@ -259,9 +193,8 @@ def _parse_basketball_reference_school(potential_row: bs4.element.Tag) -> str | 
 def download_archive_basketball_reference_advanced_stats_data(
     year: int,
 ) -> pd.DataFrame:
-    with create_session_with_retries() as session:
-        response = session.get(ADVANCED_STATS_ARCHIVE_URLS[year])
-        response.raise_for_status()
+    response = requests.get(ADVANCED_STATS_ARCHIVE_URLS[year])
+    response.raise_for_status()
     soup = bs4.BeautifulSoup(response.text, "html.parser")
 
     # Goes to the <tbody> section of the code
@@ -294,9 +227,7 @@ def _download_basketball_reference_stats_data(
     stats_url: str,
     year: int,
 ) -> pd.DataFrame:
-    with create_session_with_retries() as session:
-        response = session.get(stats_url, headers=constants.HEADERS)
-        response.raise_for_status()
+    response = requests.get(stats_url, headers=constants.HEADERS)
     soup = bs4.BeautifulSoup(response.text, "html.parser")
 
     # Goes to the <tbody> section of the code
@@ -312,6 +243,12 @@ def _download_basketball_reference_stats_data(
                 + _parse_basketball_reference_stats_row(potential_row)
             )
     columns = list(STATS_SCHEMA.keys())
+    if year <= 2019:
+        columns = [
+            column
+            for column in columns
+            if column not in ("_BLANK1", "_BLANK2", "_BLANK3", "_BLANK4")
+        ]
     untyped_df = pd.DataFrame(data_rows, columns=columns)
     return pl.DataFrame(
         untyped_df[[column for column in untyped_df.columns if "_BLANK" not in column]],
@@ -326,23 +263,9 @@ def download_basketball_reference_stats_data(year: int) -> pd.DataFrame:
     return _download_basketball_reference_stats_data(stats_url, year)
 
 
-def download_womens_basketball_reference_stats_data(year: int) -> pd.DataFrame:
-    stats_url = (
-        f"https://www.sports-reference.com/cbb/seasons/women/{year}-school-stats.html"
-    )
-    return _download_basketball_reference_stats_data(stats_url, year)
-
-
 def download_basketball_reference_opponent_stats_data(year: int) -> pd.DataFrame:
     stats_url = (
         f"https://www.sports-reference.com/cbb/seasons/men/{year}-opponent-stats.html"
-    )
-    return _download_basketball_reference_stats_data(stats_url, year)
-
-
-def download_womens_basketball_reference_opponent_stats_data(year: int) -> pd.DataFrame:
-    stats_url = (
-        f"https://www.sports-reference.com/cbb/seasons/women/{year}-opponent-stats.html"
     )
     return _download_basketball_reference_stats_data(stats_url, year)
 
@@ -372,23 +295,11 @@ def _try_to_parse_round(round: bs4.element.Tag) -> list[PostseasonGame]:
 
 
 def download_basic_tournament_games(year: int) -> pd.DataFrame:
-    return _download_basic_tournament_games(
-        year, f"https://www.sports-reference.com/cbb/postseason/{year}-ncaa.html"
-    )
-
-
-def download_womens_basic_tournament_games(year: int) -> pd.DataFrame:
-    return _download_basic_tournament_games(
-        year, f"https://www.sports-reference.com/cbb/postseason/women/{year}-ncaa.html"
-    )
-
-
-def _download_basic_tournament_games(year: int, url: str) -> pd.DataFrame:
     """Downloads the postseason bracket results for a given year from postseason/{year}"""
-    with create_session_with_retries() as session:
-        response = session.get(url)
-        response.raise_for_status()
-    soup = bs4.BeautifulSoup(response.text, "html.parser")
+    postseason_url = f"https://www.sports-reference.com/cbb/postseason/{year}-ncaa.html"
+    r = requests.get(postseason_url, headers=constants.HEADERS)
+    r.raise_for_status()
+    soup = bs4.BeautifulSoup(r.text, "html.parser")
     rounds = soup.find_all("div", attrs={"class": "round"})
 
     rounds_parsed = [
@@ -404,9 +315,12 @@ def _download_basic_tournament_games(year: int, url: str) -> pd.DataFrame:
         )
         for game in itertools.chain.from_iterable(rounds_parsed)
     ]  # combines all matchups
-
-    if len(games_data) < 63:
-        logging.warning(f"Expected 63 games, got {len(games_data)} games")
+    # 2021 had one less game because of covid
+    # Oregon vs. VCU was declared a no contest
+    if year == 2021:
+        assert len(games_data) == 62, f"Expected 62 games, got {len(games_data)} games"
+    else:
+        assert len(games_data) == 63, f"Expected 63 games, got {len(games_data)} games"
     untyped_df = pd.DataFrame(
         games_data, columns=["Team1", "Team2", "Score1", "Score2", "Box Score Link"]
     )
@@ -454,10 +368,9 @@ def _try_to_parse_box_score(
 
 
 def download_box_score(box_score_link: str) -> PostSeasonBoxScore:
-    with create_session_with_retries() as session:
-        response = session.get(box_score_link, headers=constants.HEADERS)
-        response.raise_for_status()
-    soup = bs4.BeautifulSoup(response.text, "html.parser")
+    r = requests.get(box_score_link, headers=constants.HEADERS)
+    r.raise_for_status()
+    soup = bs4.BeautifulSoup(r.text, "html.parser")
     boxscore_elements = soup.select('[id*="all_box"]')
     assert len(boxscore_elements) == 4, (
         f"Expected 4 box scores (basic and advanced for each team), got {len(boxscore_elements)}"
@@ -504,13 +417,13 @@ def remove_post_season_games(
     tournament_df: pl.DataFrame, stats_df: pl.DataFrame
 ) -> pl.DataFrame:
     # stacking on any converted names and since we inner join later it will still only include up to one matching row
-    tournament_df = tournament_df.with_columns(
-        pl.col("Team")
-        .map_elements(
-            lambda team: GAME_TEAM_NAME_MAPPING.get(team, team), return_dtype=str
-        )
-        .alias("School")
-    ).filter(~pl.col("School").is_null())
+    tournament_df = tournament_df.with_columns(pl.col("Team").alias("School")).vstack(
+        tournament_df.with_columns(
+            pl.col("Team")
+            .map_elements(lambda x: constants.TEAM_CONVERSION.get(x), return_dtype=str)
+            .alias("School")
+        ).filter(~pl.col("School").is_null())
+    )
     return (
         stats_df.join(tournament_df, on="School", how="inner")
         .with_columns(
@@ -518,7 +431,6 @@ def remove_post_season_games(
             (pl.col("W") - pl.col("G_right") + 1).alias("W"),
             (pl.col("L") - 1).alias("L"),
             (pl.col("Tm.") - pl.col("PTS")).alias("PTS"),
-            (pl.col("Opp.") - pl.col("OPP_PTS")).alias("OPP_PTS"),
             (pl.col("MP") - pl.col("MP_right") / 5).alias("MP"),
             (pl.col("FG") - pl.col("FG_right")).alias("FG"),
             (pl.col("FGA") - pl.col("FGA_right")).alias("FGA"),
@@ -536,55 +448,20 @@ def remove_post_season_games(
         )
         .with_columns(
             (pl.col("W") / (pl.col("W") + pl.col("L"))).alias("W-L%"),
-            (pl.col("FG") / pl.col("FGA")).alias("FG%"),
-            (pl.col("3P") / pl.col("3PA")).alias("3P%"),
-            (pl.col("FT") / pl.col("FTA")).alias("FT%"),
-        )
-        .select(pl.exclude("^.*_right$"))
-        .select(
-            pl.col("School"),
-            pl.col("G"),
-            pl.col("W"),
-            pl.col("L"),
-            pl.col("W-L%"),
-            pl.col("PTS"),
-            pl.col("OPP_PTS"),
-            pl.col("ConfW"),
-            pl.col("ConfL"),
-            pl.col("HomeW"),
-            pl.col("HomeL"),
-            pl.col("AwayW"),
-            pl.col("AwayL"),
-            pl.col("MP"),
-            pl.col("FG"),
-            pl.col("FGA"),
-            pl.col("FG%"),
-            pl.col("3P"),
-            pl.col("3PA"),
-            pl.col("3P%"),
-            pl.col("FT"),
-            pl.col("FTA"),
-            pl.col("FT%"),
-            pl.col("ORB"),
-            pl.col("TRB"),
-            pl.col("AST"),
-            pl.col("STL"),
-            pl.col("BLK"),
-            pl.col("TOV"),
-            pl.col("PF"),
+            (pl.col("FG%") - pl.col("FG%_right")).alias("FG%"),
+            (pl.col("3P%") - pl.col("3P%_right")).alias("3P%"),
         )
     )
 
 
 if __name__ == "__main__":
     # advanced_stats_df = download_archive_basketball_reference_advanced_stats_data(2015)
-    # # print(advanced_stats_df)
+    # print(advanced_stats_df)
+    advanced_stats_df = download_archive_basketball_reference_advanced_stats_data(2024)
+    print(advanced_stats_df)
     # advanced_stats_df = download_archive_basketball_reference_advanced_stats_data(2024)
     # print(advanced_stats_df)
-    # advanced_stats_df = download_archive_basketball_reference_advanced_stats_data(2024)
-    # print(advanced_stats_df)
-    basic_stats_df = download_basketball_reference_stats_data(2019)
-    print(basic_stats_df)
+    # basic_stats_df = download_basketball_reference_stats_data(2024)
     # postseason_games_df = download_basic_tournament_games(2021)
     # postseason_box_score = download_box_score(
     #     "https://www.sports-reference.com/cbb/boxscores/2022-03-17-14-baylor.html"

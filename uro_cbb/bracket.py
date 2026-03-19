@@ -23,16 +23,16 @@ class Team:
         return self._id
 
 
-def get_win_prob(team1: Team, team2: Team, win_probs_df: pd.DataFrame):
-    """win_prob_df: is in kaggle 2025 submission format of two columns: ID and Pred.
-    ID column is formatted as 2025_{team1_id}_{team2_id} and Pred is the win probability of team1.
+def get_win_prob(team1: Team, team2: Team, win_probs_df: pd.DataFrame, year: int):
+    """win_prob_df: is in kaggle {year} submission format of two columns: ID and Pred.
+    ID column is formatted as {year}_{team1_id}_{team2_id} and Pred is the win probability of team1.
     """
     if team1._id < team2._id:
-        prob = win_probs_df[win_probs_df["ID"] == f"2025_{team1._id}_{team2._id}"]
+        prob = win_probs_df[win_probs_df["ID"] == f"{year}_{team1._id}_{team2._id}"]
         assert len(prob) == 1, f"prob: {prob}"
         return prob.Pred.item()
     else:
-        prob = win_probs_df[win_probs_df["ID"] == f"2025_{team2._id}_{team1._id}"]
+        prob = win_probs_df[win_probs_df["ID"] == f"{year}_{team2._id}_{team1._id}"]
         assert len(prob) == 1, f"prob: {prob}"
         return 1 - prob.Pred.item()
 
@@ -58,10 +58,12 @@ class AbstractGame(abc.ABC):
 class Game(AbstractGame):
     team1: Team
     team2: Team
+    win_prob_df: pd.DataFrame
+    year: int
 
     @functools.cached_property
     def win_prob(self) -> float:
-        return get_win_prob(self.team1, self.team2)
+        return get_win_prob(self.team1, self.team2, self.win_prob_df, self.year)
 
     @functools.cached_property
     def winner(self) -> Team:
@@ -80,18 +82,20 @@ class Game(AbstractGame):
 class HyperGame:
     prev_game1: AbstractGame
     prev_game2: AbstractGame
+    win_prob_df: pd.DataFrame
+    year: int
 
     @property
     def deterministic_win_prob(self):
         game1_winner = self.prev_game1.winner
         game2_winner = self.prev_game2.winner
-        return Game(game1_winner, game2_winner).win_prob
+        return Game(game1_winner, game2_winner, self.win_prob_df, self.year).win_prob
 
     @functools.cached_property
     def winner(self):
         game1_winner = self.prev_game1.winner
         game2_winner = self.prev_game2.winner
-        game = Game(game1_winner, game2_winner)
+        game = Game(game1_winner, game2_winner, self.win_prob_df, self.year)
         if game.win_prob > 0.5:
             return game.team1
         return game.team2
@@ -111,10 +115,12 @@ class HyperGame:
                 )
                 win_probs[team] = (
                     win_probs.get(team, 0)
-                    + get_win_prob(team, team2) * prob_game_happens
+                    + get_win_prob(team, team2, self.win_prob_df, self.year)
+                    * prob_game_happens
                 )
                 win_probs[team2] = (
                     win_probs.get(team2, 0)
-                    + get_win_prob(team2, team) * prob_game_happens
+                    + get_win_prob(team2, team, self.win_prob_df, self.year)
+                    * prob_game_happens
                 )
         return win_probs

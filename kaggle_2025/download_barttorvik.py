@@ -33,3 +33,10 @@ if __name__ == "__main__":
         time.sleep(random.randint(2, 4))
         download_womens_barttorvik_data(year)
         time.sleep(random.randint(2, 4))
+    for year in range(2026, 2025, -1):
+        if year == 2020:
+            continue
+        download_barttorvik_data(year)
+        time.sleep(2)
+        download_womens_barttorvik_data(year)
+        time.sleep(2)
